@@ -998,7 +998,7 @@ extension EPUBNavigatorViewController: EPUBSpreadViewDelegate {
         // FIXME: Deprecated, to be removed at some point.
         delegate?.middleTapHandler()
         
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
+        DispatchQueue.main.asyncAfter(deadline: .now()+0.1) { [weak self] in
             self?.pageChanged?(spreadView.scrollView.contentOffset.x, spreadView.scrollView.contentSize.width)
         }
         // Uncomment to debug the coordinates of the tap point.

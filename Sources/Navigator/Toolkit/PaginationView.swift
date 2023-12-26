@@ -306,7 +306,7 @@ final class PaginationView: UIView, Loggable {
             fadeToView(at: index, location: location, animated: animated, completion: completion)
         }
         if let currentSpread = currentView as? EPUBSpreadView {
-            DispatchQueue.main.asyncAfter(deadline: .now()+0.5) { [weak self] in
+            DispatchQueue.main.asyncAfter(deadline: .now()+0.1) { [weak self] in
                 self?.pageChanged?(currentSpread.scrollView.contentOffset.x, currentSpread.scrollView.contentSize.width)
             }
         }
