@@ -245,6 +245,7 @@ open class EPUBNavigatorViewController: UIViewController,
 
     private let viewModel: EPUBNavigatorViewModel
     public var publication: Publication { viewModel.publication }
+    public var pageChanged: ((CGFloat, CGFloat)->())?
 
     var config: Configuration { viewModel.config }
 
@@ -558,7 +559,8 @@ open class EPUBNavigatorViewController: UIViewController,
         let view = PaginationView(
             frame: .zero,
             preloadPreviousPositionCount: hasPositions ? config.preloadPreviousPositionCount : 0,
-            preloadNextPositionCount: hasPositions ? config.preloadNextPositionCount : 0
+            preloadNextPositionCount: hasPositions ? config.preloadNextPositionCount : 0,
+            pageChanged: pageChanged
         )
         view.delegate = self
         view.backgroundColor = .clear
@@ -983,6 +985,10 @@ extension EPUBNavigatorViewController: EPUBSpreadViewDelegate {
             }
         }
     }
+    
+    func spreadViewDidEndDecelerating(_ spreadView: EPUBSpreadView) {
+        self.pageChanged?(spreadView.scrollView.contentOffset.x, spreadView.scrollView.contentSize.width)
+    }
 
     func spreadView(_ spreadView: EPUBSpreadView, didTapAt point: CGPoint) {
         // We allow taps in any state, because we should always be able to toggle the navigation bar,
@@ -991,7 +997,10 @@ extension EPUBNavigatorViewController: EPUBSpreadViewDelegate {
         didTap(at: view.convert(point, from: spreadView))
         // FIXME: Deprecated, to be removed at some point.
         delegate?.middleTapHandler()
-
+        
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
+            self?.pageChanged?(spreadView.scrollView.contentOffset.x, spreadView.scrollView.contentSize.width)
+        }
         // Uncomment to debug the coordinates of the tap point.
 //        let tapView = UIView(frame: .init(x: 0, y: 0, width: 50, height: 50))
 //        view.addSubview(tapView)
@@ -1130,6 +1139,7 @@ extension EPUBNavigatorViewController: EPUBSpreadViewDelegate {
     func spreadViewPagesDidChange(_ spreadView: EPUBSpreadView) {
         if paginationView.currentView == spreadView {
             notifyCurrentLocation()
+            self.pageChanged?(spreadView.webView.scrollView.contentOffset.x, spreadView.webView.scrollView.contentSize.width)
         }
     }
 
@@ -1184,6 +1194,9 @@ extension EPUBNavigatorViewController: PaginationViewDelegate {
         // FIXME: Deprecated, to be removed at some point.
         if let currentResourceIndex = currentResourceIndex {
             delegate?.didChangedDocumentPage(currentDocumentIndex: currentResourceIndex)
+            if let currentSpread = paginationView.currentView as? EPUBSpreadView {
+                self.pageChanged?(currentSpread.scrollView.contentOffset.x, currentSpread.scrollView.contentSize.width)
+            }
         }
     }
 
