@@ -55,7 +55,7 @@ public class HTMLResourceContentIterator: ContentIterator {
     private let resource: Resource
     private let locator: Locator
     private let beforeMaxLength: Int = 50
-    private let totalProgressionRange: Task<ClosedRange<Double>?, Never>
+    private let totalProgressionRange: () async -> ClosedRange<Double>?
 
     public init(
         resource: Resource,
@@ -63,8 +63,8 @@ public class HTMLResourceContentIterator: ContentIterator {
         locator: Locator
     ) {
         self.resource = resource
+        self.totalProgressionRange = memoize(totalProgressionRange)
         self.locator = locator
-        self.totalProgressionRange = Task { await totalProgressionRange() }
     }
 
     public func previous() async throws -> ContentElement? {
@@ -93,17 +93,16 @@ public class HTMLResourceContentIterator: ContentIterator {
 
     private var currentIndex: Int?
 
-    private func elements() async throws -> ParsedElements {
-        try await elementsTask.value.get()
-    }
+    private lazy var elements = memoize(parseElements)
 
-    private lazy var elementsTask = Task {
-        await resource
+    private func parseElements() async throws -> ParsedElements {
+        let result = await resource
             .readAsString()
             .eraseToAnyError()
             .tryMap { try SwiftSoup.parse($0) }
             .tryMap { try parse(document: $0, locator: locator, beforeMaxLength: beforeMaxLength) }
             .asyncMap { await adjustProgressions(of: $0) }
+        return try result.get()
     }
 
     private func parse(document: Document, locator: Locator, beforeMaxLength: Int) throws -> ParsedElements {
@@ -135,25 +134,11 @@ public class HTMLResourceContentIterator: ContentIterator {
             let progression = Double(index) / count
             return await element.copy(
                 progression: progression,
-                totalProgression: totalProgressionRange.value.map { range in
+                totalProgression: totalProgressionRange().map { range in
                     range.lowerBound + progression * (range.upperBound - range.lowerBound)
                 }
             )
         }
-
-        // Update the `startIndex` if a particular progression was requested.
-        if
-            elements.startIndex == 0,
-            locator.locations.cssSelector == nil,
-            let progression = locator.locations.progression,
-            progression > 0, progression < 1
-        {
-            elements.startIndex = elements.elements.lastIndex { element in
-                let elementProgression = element.locator.locations.progression ?? 0
-                return elementProgression < progression
-            } ?? 0
-        }
-
         return elements
     }
 
@@ -252,7 +237,7 @@ public class HTMLResourceContentIterator: ContentIterator {
                     flushText()
                     try node.srcRelativeToHREF(baseHREF).map { href in
                         var attributes: [ContentAttribute] = []
-                        if let alt = try node.attr("alt").orNilIfBlank() {
+                        if let alt = try node.attr("alt").takeUnlessBlank() {
                             attributes.append(ContentAttribute(key: .accessibilityLabel, value: alt))
                         }
 
@@ -277,7 +262,7 @@ public class HTMLResourceContentIterator: ContentIterator {
                                         try Link(
                                             href: href.string,
                                             mediaType: source.attr("type")
-                                                .orNilIfBlank()
+                                                .takeUnlessBlank()
                                                 .flatMap { MediaType($0) }
                                         )
                                     }
@@ -308,7 +293,7 @@ public class HTMLResourceContentIterator: ContentIterator {
 
         func tail(_ node: Node, _ depth: Int) throws {
             if let node = node as? TextNode {
-                guard let wholeText = node.getWholeText().orNilIfBlank() else {
+                guard let wholeText = node.getWholeText().takeUnlessBlank() else {
                     return
                 }
 
@@ -439,7 +424,7 @@ public class HTMLResourceContentIterator: ContentIterator {
 
 private extension Node {
     func srcRelativeToHREF(_ baseHREF: AnyURL?) throws -> AnyURL? {
-        try attr("src").orNilIfBlank()
+        try attr("src").takeUnlessBlank()
             .flatMap { AnyURL(string: $0) }
             .flatMap {
                 baseHREF?.resolve($0) ?? $0
@@ -447,9 +432,15 @@ private extension Node {
     }
 
     func language() throws -> String? {
-        try attr("xml:lang").orNilIfBlank()
-            ?? attr("lang").orNilIfBlank()
+        try attr("xml:lang").takeUnlessBlank()
+            ?? attr("lang").takeUnlessBlank()
             ?? parent()?.language()
+    }
+}
+
+private extension String {
+    func takeUnlessBlank() -> String? {
+        trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : self
     }
 }
 
@@ -501,8 +492,8 @@ private extension Locator.Text {
         let trailingWhitespace = String(text[trailingWhitespaceIdx...])
 
         return Locator.Text(
-            after: trailingWhitespace.orNilIfBlank(),
-            before: ((before ?? "") + leadingWhitespace).orNilIfBlank(),
+            after: trailingWhitespace.takeUnlessBlank(),
+            before: ((before ?? "") + leadingWhitespace).takeUnlessBlank(),
             highlight: String(text[leadingWhitespaceIdx ..< trailingWhitespaceIdx])
         )
     }

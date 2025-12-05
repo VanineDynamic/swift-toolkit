@@ -7,21 +7,11 @@
 import Foundation
 import PDFKit
 
-protocol PDFDocumentViewDelegate: AnyObject {
-    func pdfDocumentViewContentInset(_ pdfDocumentView: PDFDocumentView) -> UIEdgeInsets?
-}
-
 public final class PDFDocumentView: PDFView {
     var editingActions: EditingActionsController
-    private weak var documentViewDelegate: PDFDocumentViewDelegate?
 
-    init(
-        frame: CGRect,
-        editingActions: EditingActionsController,
-        documentViewDelegate: PDFDocumentViewDelegate
-    ) {
+    init(frame: CGRect, editingActions: EditingActionsController) {
         self.editingActions = editingActions
-        self.documentViewDelegate = documentViewDelegate
 
         super.init(frame: frame)
 
@@ -50,9 +40,9 @@ public final class PDFDocumentView: PDFView {
     }
 
     private func updateContentInset() {
-        let insets = documentViewDelegate?.pdfDocumentViewContentInset(self) ?? window?.safeAreaInsets ?? .zero
-        firstScrollView?.contentInset.top = insets.top
-        firstScrollView?.contentInset.bottom = insets.bottom
+        // Setting the horizontal values triggers shifts the content incorrectly, somehow.
+        firstScrollView?.contentInset.top = notchAreaInsets.top
+        firstScrollView?.contentInset.bottom = notchAreaInsets.bottom
     }
 
     override public func canPerformAction(_ action: Selector, withSender sender: Any?) -> Bool {

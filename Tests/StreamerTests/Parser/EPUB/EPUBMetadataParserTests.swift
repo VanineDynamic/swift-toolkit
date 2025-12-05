@@ -34,7 +34,6 @@ class EPUBMetadataParserTests: XCTestCase {
             ],
             authors: [Contributor(name: "Lewis Carroll")],
             publishers: [Contributor(name: "D. Appleton and Co")],
-            layout: .fixed,
             readingProgression: .rtl,
             description: "The book description.",
             numberOfPages: 42,
@@ -55,9 +54,13 @@ class EPUBMetadataParserTests: XCTestCase {
                     "http://my.url/#refine2": "Refine 2",
                 ],
                 "http://purl.org/dc/terms/format": "application/epub+zip",
-                "http://www.idpf.org/vocab/rendition/#flow": "scrolled-doc",
-                "http://www.idpf.org/vocab/rendition/#orientation": "landscape",
-                "http://www.idpf.org/vocab/rendition/#spread": "both",
+                "presentation": [
+                    "continuous": false,
+                    "spread": "both",
+                    "overflow": "scrolled",
+                    "orientation": "landscape",
+                    "layout": "fixed",
+                ] as [String: Any],
             ]
         ))
     }
@@ -68,7 +71,15 @@ class EPUBMetadataParserTests: XCTestCase {
         XCTAssertEqual(sut, Metadata(
             conformsTo: [.epub],
             title: "Alice's Adventures in Wonderland",
-            layout: .reflowable
+            otherMetadata: [
+                "presentation": [
+                    "continuous": false,
+                    "spread": "auto",
+                    "overflow": "auto",
+                    "orientation": "auto",
+                    "layout": "reflowable",
+                ] as [String: Any],
+            ]
         ))
     }
 
@@ -78,7 +89,15 @@ class EPUBMetadataParserTests: XCTestCase {
         XCTAssertEqual(sut, Metadata(
             conformsTo: [.epub],
             title: "Alice's Adventures in Wonderland",
-            layout: .reflowable
+            otherMetadata: [
+                "presentation": [
+                    "continuous": false,
+                    "spread": "auto",
+                    "overflow": "auto",
+                    "orientation": "auto",
+                    "layout": "reflowable",
+                ] as [String: Any],
+            ]
         ))
     }
 
@@ -150,26 +169,29 @@ class EPUBMetadataParserTests: XCTestCase {
             title: "Alice's Adventures in Wonderland",
             authors: [
                 Contributor(name: "Author 1"),
-                Contributor(name: "Author 3"),
                 Contributor(name: "Author 4"),
+                Contributor(name: "Author 5"),
                 Contributor(name: "Author A"),
-                Contributor(name: "Author 2"),
-                Contributor(name: "Cameleon 1"),
-                Contributor(name: "Cameleon A"),
+                Contributor(name: "Author 2", roles: ["aut"]),
+                Contributor(name: "Author B", roles: ["aut"]),
+                Contributor(name: "Author C", roles: ["aut"]),
+                Contributor(name: "Author 3", roles: ["aut"]),
+                Contributor(name: "Cameleon 1", roles: ["aut", "pbl"]),
+                Contributor(name: "Cameleon A", roles: ["aut", "pbl"]),
             ],
-            translators: [Contributor(name: "Translator")],
-            editors: [Contributor(name: "Editor")],
-            artists: [Contributor(name: "Artist")],
+            translators: [Contributor(name: "Translator", roles: ["trl"])],
+            editors: [Contributor(name: "Editor", roles: ["edt"])],
+            artists: [Contributor(name: "Artist", roles: ["art"])],
             illustrators: [
-                Contributor(name: "Illustrator 1"),
-                Contributor(name: "Illustrator 2", sortAs: "sorting"),
-                Contributor(name: "Illustrator A", sortAs: "sorting"),
+                Contributor(name: "Illustrator 1", roles: ["ill"]),
+                Contributor(name: "Illustrator 2", sortAs: "sorting", roles: ["ill"]),
+                Contributor(name: "Illustrator A", sortAs: "sorting", roles: ["ill"]),
             ],
             letterers: [],
             pencilers: [],
-            colorists: [Contributor(name: "Colorist")],
+            colorists: [Contributor(name: "Colorist", roles: ["clr"])],
             inkers: [],
-            narrators: [Contributor(name: "Narrator")],
+            narrators: [Contributor(name: "Narrator", roles: ["nrt"])],
             contributors: [
                 Contributor(name: "Contributor 1"),
                 Contributor(name: "Unknown", roles: ["unknown"]),
@@ -178,11 +200,20 @@ class EPUBMetadataParserTests: XCTestCase {
             publishers: [
                 Contributor(name: "Publisher 1"),
                 Contributor(name: "Publisher A"),
-                Contributor(name: "Publisher B"),
-                Contributor(name: "Publisher 2"),
+                Contributor(name: "Publisher 2", roles: ["pbl"]),
+                Contributor(name: "Cameleon 1", roles: ["aut", "pbl"]),
+                Contributor(name: "Cameleon A", roles: ["aut", "pbl"]),
             ],
             imprints: [],
-            layout: .reflowable
+            otherMetadata: [
+                "presentation": [
+                    "continuous": false,
+                    "spread": "auto",
+                    "overflow": "auto",
+                    "orientation": "auto",
+                    "layout": "reflowable",
+                ] as [String: Any],
+            ]
         ))
     }
 
@@ -268,7 +299,16 @@ class EPUBMetadataParserTests: XCTestCase {
 
     func testParseRenditionFallbackWithDisplayOptions() throws {
         let sut = try parseMetadata("minimal", displayOptions: "displayOptions")
-        XCTAssertEqual(sut.layout, .fixed)
+        AssertJSONEqual(
+            sut.otherMetadata["presentation"],
+            [
+                "continuous": false,
+                "spread": "auto",
+                "overflow": "auto",
+                "orientation": "landscape",
+                "layout": "fixed",
+            ] as [String: Any]
+        )
     }
 
     func testParseEPUB2Accessibility() throws {
@@ -291,7 +331,7 @@ class EPUBMetadataParserTests: XCTestCase {
             )
         )
         // Checks that the a11y metadata are not added to otherMetadata.
-        XCTAssertTrue(sut.otherMetadata.isEmpty)
+        XCTAssertEqual(Array(sut.otherMetadata.keys), ["presentation"])
     }
 
     func testParseEPUB3Accessibility() throws {
@@ -314,7 +354,7 @@ class EPUBMetadataParserTests: XCTestCase {
             )
         )
         // Checks that the a11y metadata are not added to otherMetadata.
-        XCTAssertTrue(sut.otherMetadata.isEmpty)
+        XCTAssertEqual(Array(sut.otherMetadata.keys), ["presentation"])
     }
 
     func testParseEPUB2TDM() throws {

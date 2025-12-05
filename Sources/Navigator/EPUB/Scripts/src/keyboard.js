@@ -12,7 +12,7 @@ window.addEventListener("keydown", (event) => {
   }
 
   preventDefault(event);
-  sendKeyEvent("down", event);
+  sendPressKeyMessage(event, "keydown");
 });
 
 window.addEventListener("keyup", (event) => {
@@ -21,7 +21,7 @@ window.addEventListener("keyup", (event) => {
   }
 
   preventDefault(event);
-  sendKeyEvent("up", event);
+  sendPressKeyMessage(event, "keyup");
 });
 
 function shouldIgnoreEvent(event) {
@@ -38,10 +38,10 @@ function preventDefault(event) {
   event.preventDefault();
 }
 
-function sendKeyEvent(phase, event) {
+function sendPressKeyMessage(event, keyType) {
   if (event.repeat) return;
-  webkit.messageHandlers.keyEventReceived.postMessage({
-    phase: phase,
+  webkit.messageHandlers.pressKey.postMessage({
+    type: keyType,
     code: event.code,
     // We use a deprecated `keyCode` property, because the value of `event.key`
     // changes depending on which modifier is pressed, while `event.code` shows

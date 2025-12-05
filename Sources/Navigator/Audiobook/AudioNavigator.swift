@@ -194,7 +194,7 @@ public final class AudioNavigator: Navigator, Configurable, AudioSessionUser, Lo
 
     /// Resumes or start the playback.
     public func play() {
-        playTask = Task { @MainActor in
+        playTask = Task {
             AudioSession.shared.start(with: self, isPlaying: false)
 
             if player.currentItem == nil {
@@ -204,7 +204,7 @@ public final class AudioNavigator: Navigator, Configurable, AudioSessionUser, Lo
                     await go(to: link)
                 }
             }
-            player.playImmediately(atRate: Float(settings.speed))
+            await player.playImmediately(atRate: Float(settings.speed))
         }
     }
 
@@ -533,3 +533,15 @@ private extension CMTime {
         isNumeric ? seconds : 0
     }
 }
+
+@available(*, unavailable, renamed: "AudioNavigator")
+public typealias _AudioNavigator = AudioNavigator
+
+@available(*, unavailable, renamed: "AudioNavigatorDelegate")
+public typealias _AudioNavigatorDelegate = AudioNavigatorDelegate
+
+@available(*, unavailable, renamed: "AudioNavigator")
+public typealias _MediaNavigator = AudioNavigator
+
+@available(*, unavailable, renamed: "AudioNavigatorDelegate")
+public typealias _MediaNavigatorDelegate = AudioNavigatorDelegate

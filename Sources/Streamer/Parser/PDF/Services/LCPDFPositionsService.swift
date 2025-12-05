@@ -20,10 +20,12 @@ final class LCPDFPositionsService: PositionsService, PDFPublicationService, Logg
     }
 
     func positionsByReadingOrder() async -> ReadResult<[[Locator]]> {
-        await positionsByReadingOrderTask.value
+        await _positionsByReadingOrder()
     }
 
-    private lazy var positionsByReadingOrderTask: Task<ReadResult<[[Locator]]>, Never> = Task {
+    private lazy var _positionsByReadingOrder = memoize(computePositionsByReadingOrder)
+
+    private func computePositionsByReadingOrder() async -> ReadResult<[[Locator]]> {
         // Calculates the page count of each resource from the reading order.
         let resources = await readingOrder.asyncMap { link -> (Int, Link) in
             let href = link.url()

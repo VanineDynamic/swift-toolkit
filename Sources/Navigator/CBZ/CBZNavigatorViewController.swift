@@ -11,10 +11,7 @@ import UIKit
 public protocol CBZNavigatorDelegate: VisualNavigatorDelegate {}
 
 /// A view controller used to render a CBZ `Publication`.
-open class CBZNavigatorViewController:
-    InputObservableViewController,
-    VisualNavigator, Loggable
-{
+open class CBZNavigatorViewController: UIViewController, VisualNavigator, Loggable {
     enum Error: Swift.Error {
         /// The provided publication is restricted. Check that any DRM was
         /// properly unlocked using a Content Protection.
@@ -76,6 +73,11 @@ open class CBZNavigatorViewController:
         }
     }
 
+    @available(*, unavailable, message: "See the 2.5.0 migration guide to migrate the HTTP server")
+    public convenience init(publication: Publication, initialLocation: Locator? = nil) {
+        fatalError()
+    }
+
     private let tasks = CancellableTasks()
 
     private init(
@@ -101,21 +103,6 @@ open class CBZNavigatorViewController:
         )
 
         super.init(nibName: nil, bundle: nil)
-
-        setupLegacyInputCallbacks(
-            onTap: { [weak self] point in
-                guard let self else { return }
-                self.delegate?.navigator(self, didTapAt: point)
-            },
-            onPressKey: { [weak self] event in
-                guard let self else { return }
-                self.delegate?.navigator(self, didPressKey: event)
-            },
-            onReleaseKey: { [weak self] event in
-                guard let self else { return }
-                self.delegate?.navigator(self, didReleaseKey: event)
-            }
-        )
     }
 
     private func didLoadPositions(_ positions: [Locator]?) {
@@ -145,7 +132,7 @@ open class CBZNavigatorViewController:
         view.addSubview(pageViewController.view)
         pageViewController.didMove(toParent: self)
 
-        view.addGestureRecognizer(InputObservingGestureRecognizerAdapter(observer: inputObservers))
+        view.addGestureRecognizer(UITapGestureRecognizer(target: self, action: #selector(didTap)))
 
         tasks.add {
             try? await didLoadPositions(publication.positions().get())
@@ -163,6 +150,9 @@ open class CBZNavigatorViewController:
         }
         return imageViewController.index
     }
+
+    @available(*, unavailable, renamed: "currentLocation")
+    public var currentPosition: Locator? { fatalError() }
 
     @discardableResult
     private func goToResourceAtIndex(_ index: Int, options: NavigatorGoOptions, isJump: Bool) async -> Bool {
@@ -195,6 +185,11 @@ open class CBZNavigatorViewController:
         }
 
         return true
+    }
+
+    @objc private func didTap(_ gesture: UITapGestureRecognizer) {
+        let point = gesture.location(in: view)
+        delegate?.navigator(self, didTapAt: point)
     }
 
     private func imageViewController(at index: Int) -> ImageViewController? {

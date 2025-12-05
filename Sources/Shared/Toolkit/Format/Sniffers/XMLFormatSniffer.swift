@@ -8,8 +8,6 @@ import Foundation
 
 /// Sniffs an XML document.
 public struct XMLFormatSniffer: FormatSniffer {
-    public init() {}
-
     public func sniffHints(_ hints: FormatHints) -> Format? {
         if
             hints.hasFileExtension("xml") ||

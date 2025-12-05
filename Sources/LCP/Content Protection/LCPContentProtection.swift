@@ -156,7 +156,7 @@ private final class LCPContentProtectionService: ContentProtectionService {
 
     init(license: LCPLicense? = nil, error: Error? = nil) {
         self.license = license
-        self.error = error ?? license?.error
+        self.error = error
     }
 
     convenience init(result: Result<LCPLicense, LCPError>) {
@@ -179,7 +179,7 @@ private final class LCPContentProtectionService: ContentProtectionService {
     let scheme: ContentProtectionScheme = .lcp
 
     var isRestricted: Bool {
-        license?.isRestricted ?? true
+        license == nil
     }
 
     var rights: UserRights {

@@ -51,7 +51,11 @@ private func parseEPUBEncryptionData(in container: Container) async -> ReadResul
             do {
                 let doc = try await DefaultXMLDocumentFactory().open(
                     data: data,
-                    namespaces: [.enc, .ds, .comp]
+                    namespaces: [
+                        (prefix: "enc", uri: "http://www.w3.org/2001/04/xmlenc#"),
+                        (prefix: "ds", uri: "http://www.w3.org/2000/09/xmldsig#"),
+                        (prefix: "comp", uri: "http://www.idpf.org/2016/encryption#compression"),
+                    ]
                 )
                 return .success(doc)
             } catch {

@@ -106,7 +106,7 @@ enum OPFVocabulary: String {
     /// > must use such local overrides when encountered.
     /// http://www.idpf.org/epub/301/spec/epub-publications.html#sec-metadata-reserved-vocabs
     static func prefixes(in document: ReadiumFuzi.XMLDocument) -> [String: String] {
-        document.defineNamespace(.opf)
+        document.definePrefix("opf", forNamespace: "http://www.idpf.org/2007/opf")
         guard let prefixAttribute = document.firstChild(xpath: "/opf:package")?.attr("prefix") else {
             return [:]
         }
@@ -159,7 +159,8 @@ struct OPFMetaList {
     init(document: ReadiumFuzi.XMLDocument) {
         self.document = document
         let prefixes = OPFVocabulary.prefixes(in: document)
-        document.defineNamespaces(.opf, .dc)
+        document.definePrefix("opf", forNamespace: "http://www.idpf.org/2007/opf")
+        document.definePrefix("dc", forNamespace: "http://purl.org/dc/elements/1.1/")
 
         // Parses `<meta>` and `<dc:x>` tags in order of appearance.
         let root = "/opf:package/opf:metadata"
@@ -310,7 +311,7 @@ struct OPFMetaList {
             "conformsTo",
         ],
         .media: ["duration"],
-        .rendition: ["layout"],
+        .rendition: ["flow", "layout", "orientation", "spread"],
         .schema: [
             "numberOfPages", "accessMode", "accessModeSufficient",
             "accessibilitySummary", "accessibilityFeature", "accessibilityHazard",

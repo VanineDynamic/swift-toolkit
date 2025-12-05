@@ -72,12 +72,4 @@ class PropertiesTests: XCTestCase {
             ] as [String: Any]
         )
     }
-
-    func testGetPageWhenMissing() {
-        XCTAssertNil(Properties().page)
-    }
-
-    func testGetPageWhenAvailable() {
-        XCTAssertEqual(Properties(["page": "center"]).page, .center)
-    }
 }

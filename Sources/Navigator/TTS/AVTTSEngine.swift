@@ -47,22 +47,16 @@ public class AVTTSEngine: NSObject, TTSEngine, AVSpeechSynthesizerDelegate, Logg
         synthesizer.delegate = self
     }
 
+    @available(*, unavailable, message: "The audio session is now configured through the `PublicationSpeechSynthesizer`")
+    public convenience init(
+        audioSessionConfig: AudioSession.Configuration? = nil,
+        delegate: AVTTSEngineDelegate? = nil
+    ) {
+        self.init(delegate: delegate)
+    }
+
     public lazy var availableVoices: [TTSVoice] =
         AVSpeechSynthesisVoice.speechVoices()
-            .filter { voice in
-                // Remove novelty, eloquence and "classic" voices, as they are
-                // not a good modern fit to read publications.
-                if
-                    #available(iOS 17.0, *),
-                    voice.voiceTraits.contains(.isNoveltyVoice) ||
-                    voice.voiceTraits.contains(.isPersonalVoice)
-                {
-                    return false
-                }
-
-                return !voice.identifier.contains(".eloquence.")
-                    && !voice.identifier.starts(with: "com.apple.speech.synthesis.voice.")
-            }
             .map { TTSVoice(voice: $0) }
 
     public func voiceWithIdentifier(_ id: String) -> TTSVoice? {
@@ -374,18 +368,12 @@ private extension TTSVoice.Quality {
     init?(voice: AVSpeechSynthesisVoice) {
         switch voice.quality {
         case .default:
-            if voice.identifier.contains(".compact.") {
-                self = .low
-            } else if voice.identifier.contains(".super-compact.") {
-                self = .lower
-            } else {
-                self = .medium
-            }
+            self = .medium
         case .enhanced:
             self = .high
         #if swift(>=5.7)
             case .premium:
-                self = .higher
+                self = .high
         #endif
         @unknown default:
             return nil

@@ -34,7 +34,8 @@ final class NavigationDocumentParser {
     private lazy var document: ReadiumFuzi.XMLDocument? = {
         // Warning: Somehow if we use HTMLDocument instead of XMLDocument, then the `epub` prefix doesn't work.
         let document = try? ReadiumFuzi.XMLDocument(data: data)
-        document?.defineNamespaces(.html, .epub)
+        document?.definePrefix("html", forNamespace: "http://www.w3.org/1999/xhtml")
+        document?.definePrefix("epub", forNamespace: "http://www.idpf.org/2007/ops")
         return document
     }()
 
@@ -65,20 +66,13 @@ final class NavigationDocumentParser {
         return NavigationDocumentParser.makeLink(
             title: label.stringValue,
             href: label.attr("href").flatMap(RelativeURL.init(epubHREF:)),
-            rel: label.attr("type", namespace: .epub).flatMap(LinkRelation.init(epubType:)),
             children: links(in: li),
             baseURL: url
         )
     }
 
     /// Creates a new navigation `Link` object from a label, href and children, after validating the data.
-    static func makeLink(
-        title: String?,
-        href: RelativeURL?,
-        rel: LinkRelation?,
-        children: [Link],
-        baseURL: RelativeURL
-    ) -> Link? {
+    static func makeLink(title: String?, href: RelativeURL?, children: [Link], baseURL: RelativeURL) -> Link? {
         // Cleans up title label.
         // http://www.idpf.org/epub/301/spec/epub-contentdocs.html#confreq-nav-a-cnt
         let title = (title ?? "")
@@ -98,11 +92,6 @@ final class NavigationDocumentParser {
             return nil
         }
 
-        return Link(
-            href: href?.string ?? "#",
-            title: title,
-            rel: rel,
-            children: children
-        )
+        return Link(href: href?.string ?? "#", title: title, children: children)
     }
 }

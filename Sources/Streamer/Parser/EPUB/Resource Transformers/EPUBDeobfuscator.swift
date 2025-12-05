@@ -33,9 +33,9 @@ final class EPUBDeobfuscator {
     func deobfuscate(resource: Resource, at href: AnyURL) -> Resource {
         // Checks if the resource is obfuscated with a known algorithm.
         guard
-            let href = href.relativeURL?.normalized,
+            let href = href.relativeURL,
             !publicationId.isEmpty, publicationId != "urn:uuid:",
-            let algorithmId = encryptions[href]?.algorithm,
+            let algorithmId = encryptions[equivalent: href]?.algorithm,
             let algorithm = algorithms.first(withIdentifier: algorithmId)
         else {
             return resource

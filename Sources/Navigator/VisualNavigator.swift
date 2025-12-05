@@ -9,7 +9,7 @@ import ReadiumShared
 import UIKit
 
 /// A navigator rendering the publication visually on-screen.
-public protocol VisualNavigator: Navigator, InputObservable {
+public protocol VisualNavigator: Navigator {
     /// Viewport view.
     var view: UIView! { get }
 
@@ -42,6 +42,12 @@ public protocol VisualNavigator: Navigator, InputObservable {
 }
 
 public extension VisualNavigator {
+    /// Current reading progression direction.
+    @available(*, unavailable, message: "Use `presentation.readingProgression` instead", renamed: "presentation.readingProgression")
+    var readingProgression: ReadiumShared.ReadingProgression { fatalError() }
+}
+
+public extension VisualNavigator {
     func firstVisibleElementLocator() async -> Locator? {
         currentLocation
     }
@@ -65,6 +71,21 @@ public extension VisualNavigator {
             return await goBackward(options: options)
         }
     }
+
+    @available(*, unavailable, message: "Use the async variant")
+    func firstVisibleElementLocator(completion: @escaping (Locator?) -> Void) {
+        fatalError()
+    }
+
+    @available(*, unavailable, message: "Use the async variant")
+    func goLeft(animated: Bool = false, completion: @escaping () -> Void = {}) -> Bool {
+        fatalError()
+    }
+
+    @available(*, unavailable, message: "Use the async variant")
+    func goRight(animated: Bool = false, completion: @escaping () -> Void = {}) -> Bool {
+        fatalError()
+    }
 }
 
 public struct VisualNavigatorPresentation {
@@ -86,21 +107,9 @@ public struct VisualNavigatorPresentation {
 }
 
 @MainActor public protocol VisualNavigatorDelegate: NavigatorDelegate {
-    /// Returns the content insets that the navigator applies to its view.
-    ///
-    /// Implement this method to customize the margins around the publication
-    /// content and to control which areas may be covered by the app's UI or
-    /// system bars.
-    ///
-    /// Consider the view's safe area insets to prevent notches, the status bar,
-    /// or other overlays from obscuring the content.
-    ///
-    /// - Returns: The insets to apply, or `nil` to use the navigator’s default behavior.
-    func navigatorContentInset(_ navigator: VisualNavigator) -> UIEdgeInsets?
-
     /// Called when the navigator presentation changed, for example after
     /// applying a new set of preferences.
-    func navigator(_ navigator: VisualNavigator, presentationDidChange presentation: VisualNavigatorPresentation)
+    func navigator(_ navigator: Navigator, presentationDidChange presentation: VisualNavigatorPresentation)
 
     /// Called when the user tapped the publication, and it didn't trigger any
     /// internal action. The point is relative to the navigator's view.
@@ -122,11 +131,7 @@ public struct VisualNavigatorPresentation {
 }
 
 public extension VisualNavigatorDelegate {
-    func navigatorContentInset(_ navigator: VisualNavigator) -> UIEdgeInsets? {
-        nil
-    }
-
-    func navigator(_ navigator: VisualNavigator, presentationDidChange presentation: VisualNavigatorPresentation) {
+    func navigator(_ navigator: Navigator, presentationDidChange presentation: VisualNavigatorPresentation) {
         // Optional
     }
 

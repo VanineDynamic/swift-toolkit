@@ -6,6 +6,11 @@
 
 import Foundation
 
+@available(*, unavailable, renamed: "ReadiumEnableLog")
+public func R2EnableLog(withMinimumSeverityLevel level: SeverityLevel, customLogger: LoggerType = LoggerStub()) {
+    fatalError()
+}
+
 /// Initialize the Logger.
 /// Default logger is the `LoggerStub` class
 ///

@@ -20,7 +20,7 @@ public actor EPUBPositionsService: PositionsService {
         { context in
             EPUBPositionsService(
                 readingOrder: context.manifest.readingOrder,
-                layout: context.manifest.metadata.layout,
+                presentation: context.manifest.metadata.presentation,
                 container: context.container,
                 reflowableStrategy: reflowableStrategy
             )
@@ -59,18 +59,18 @@ public actor EPUBPositionsService: PositionsService {
     }
 
     private let readingOrder: [Link]
-    private let layout: Layout?
+    private let presentation: Presentation
     private let container: Container
     private let reflowableStrategy: ReflowableStrategy
 
     init(
         readingOrder: [Link],
-        layout: Layout?,
+        presentation: Presentation,
         container: Container,
         reflowableStrategy: ReflowableStrategy
     ) {
         self.readingOrder = readingOrder
-        self.layout = layout
+        self.presentation = presentation
         self.container = container
         self.reflowableStrategy = reflowableStrategy
     }
@@ -88,10 +88,9 @@ public actor EPUBPositionsService: PositionsService {
         var lastPositionOfPreviousResource = 0
         var positions = await readingOrder.asyncMap { link -> [Locator] in
             let (lastPosition, positions): (Int, [Locator]) = await {
-                switch layout {
-                case .fixed:
+                if presentation.layout(of: link) == .fixed {
                     return makePositions(ofFixedResource: link, from: lastPositionOfPreviousResource)
-                case nil, .reflowable, .scrolled:
+                } else {
                     return await makePositions(ofReflowableResource: link, from: lastPositionOfPreviousResource)
                 }
             }()

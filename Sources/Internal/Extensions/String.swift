@@ -91,8 +91,4 @@ public extension String {
         }
         return self
     }
-
-    func orNilIfBlank() -> String? {
-        trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : self
-    }
 }

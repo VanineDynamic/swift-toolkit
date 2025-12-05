@@ -27,10 +27,12 @@ final class LCPDFTableOfContentsService: TableOfContentsService, PDFPublicationS
     }
 
     func tableOfContents() async -> ReadResult<[Link]> {
-        await tableOfContentsTask.value
+        await _tableOfContents()
     }
 
-    private lazy var tableOfContentsTask: Task<ReadResult<[Link]>, Never> = Task {
+    private lazy var _tableOfContents = memoize(makeTableOfContents)
+
+    private func makeTableOfContents() async -> ReadResult<[Link]> {
         guard
             manifest.tableOfContents.isEmpty,
             manifest.readingOrder.count == 1,

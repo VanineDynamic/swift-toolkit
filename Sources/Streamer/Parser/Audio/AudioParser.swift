@@ -56,7 +56,7 @@ public final class AudioParser: PublicationParser {
         }
 
         let container = SingleResourceContainer(publication: asset)
-        return await makeBuilder(
+        return makeBuilder(
             container: container,
             readingOrder: [(container.entry, asset.format)],
             title: nil
@@ -72,8 +72,8 @@ public final class AudioParser: PublicationParser {
         }
 
         return await makeReadingOrder(for: asset.container)
-            .asyncFlatMap { readingOrder in
-                await makeBuilder(
+            .flatMap { readingOrder in
+                makeBuilder(
                     container: asset.container,
                     readingOrder: readingOrder,
                     title: asset.container.guessTitle(ignoring: ignores)
@@ -91,7 +91,7 @@ public final class AudioParser: PublicationParser {
                 container.entries
                     .compactMap { url -> (AnyURL, Format)? in
                         guard
-                            let format = formats[url],
+                            let format = formats[equivalent: url],
                             format.conformsToAny(audioSpecifications)
                         else {
                             return nil
@@ -132,7 +132,7 @@ public final class AudioParser: PublicationParser {
         container: Container,
         readingOrder: [(AnyURL, Format)],
         title: String?
-    ) async -> Result<Publication.Builder, PublicationParseError> {
+    ) -> Result<Publication.Builder, PublicationParseError> {
         guard !readingOrder.isEmpty else {
             return .failure(.reading(.decoding("No audio resources found in the publication")))
         }
@@ -150,7 +150,7 @@ public final class AudioParser: PublicationParser {
             }
         )
 
-        let augmented = await manifestAugmentor.augment(manifest, using: container)
+        let augmented = manifestAugmentor.augment(manifest, using: container)
 
         return .success(Publication.Builder(
             manifest: augmented.manifest,

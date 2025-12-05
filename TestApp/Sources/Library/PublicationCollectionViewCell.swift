@@ -9,7 +9,7 @@ import UIKit
 protocol PublicationCollectionViewCellDelegate: AnyObject {
     var lastFlippedCell: PublicationCollectionViewCell? { get set }
 
-    func presentMetadata(forCellAt indexPath: IndexPath)
+    func displayInformation(forCellAt indexPath: IndexPath)
     func removePublicationFromLibrary(forCellAt indexPath: IndexPath)
     func cellFlipped(_ cell: PublicationCollectionViewCell)
 }
@@ -98,12 +98,12 @@ extension PublicationCollectionViewCell {
 }
 
 extension PublicationCollectionViewCell: PublicationMenuViewControllerDelegate {
-    func metadataButtonTapped() {
+    func infosButtonTapped() {
         guard let indexPath = (superview as? UICollectionView)?.indexPath(for: self) else {
             return
         }
         flipMenu()
-        delegate?.presentMetadata(forCellAt: indexPath)
+        delegate?.displayInformation(forCellAt: indexPath)
     }
 
     func removeButtonTapped() {

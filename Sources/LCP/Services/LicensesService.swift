@@ -98,7 +98,14 @@ final class LicensesService: Loggable {
             onLicenseValidated: onLicenseValidated
         )
 
-        let documents = try await validation.validate(.license(initialData))
+        guard let documents = try await validation.validate(.license(initialData)) else {
+            throw LCPError.missingPassphrase
+        }
+
+        // Check the license status error if there's any
+        // Note: Right now we don't want to return a License if it fails the Status check, that's why we attempt to get the DRM context. But it could change if we want to access, for example, the License metadata or perform an LSD interaction, but without being able to decrypt the book. In which case, we could remove this line.
+        // Note2: The License already gets in this state when we perform a `return` successfully. We can't decrypt anymore but we still have access to the License Documents and LSD interactions.
+        _ = try documents.getContext()
 
         return License(documents: documents, client: client, validation: validation, licenses: licenses, device: device, httpClient: httpClient)
     }
@@ -120,47 +127,26 @@ final class LicensesService: Loggable {
             onProgress: { onProgress(.percent(Float($0))) }
         ).get()
 
-        let format = try await injectLicenseAndGetFormat(
-            license,
-            in: download.location,
-            mediaTypeHint: download.mediaType
-        )
-
-        return LCPAcquiredPublication(
-            localURL: download.location,
-            format: format,
-            suggestedFilename: format.fileExtension.appendedToFilename(license.id),
-            licenseDocument: license
-        )
-    }
-
-    func injectLicenseDocument(
-        _ license: LicenseDocument,
-        in url: FileURL
-    ) async throws {
-        let _ = try await injectLicenseAndGetFormat(license, in: url, mediaTypeHint: nil)
-    }
-
-    private func injectLicenseAndGetFormat(
-        _ license: LicenseDocument,
-        in url: FileURL,
-        mediaTypeHint: MediaType? = nil
-    ) async throws -> Format {
-        var formatHints = FormatHints()
-        if let type = license.publicationLink.mediaType {
-            formatHints.mediaTypes.append(type)
+        var hints = FormatHints()
+        if let type = license.link(for: .publication)?.mediaType {
+            hints.mediaTypes.append(type)
         }
-        if let type = mediaTypeHint {
-            formatHints.mediaTypes.append(type)
+        if let type = download.mediaType {
+            hints.mediaTypes.append(type)
         }
 
-        let asset = try await assetRetriever.retrieve(url: url, hints: formatHints)
+        let asset = try await assetRetriever.retrieve(url: download.location, hints: hints)
             .mapError { LCPError.licenseContainer(ContainerError.openFailed($0)) }
             .get()
 
         try await injectLicense(license, in: asset)
 
-        return asset.format
+        return LCPAcquiredPublication(
+            localURL: download.location,
+            format: asset.format,
+            suggestedFilename: asset.format.fileExtension.appendedToFilename(license.id),
+            licenseDocument: license
+        )
     }
 
     private func readLicense(from lcpl: LicenseDocumentSource) async throws -> LicenseDocument? {

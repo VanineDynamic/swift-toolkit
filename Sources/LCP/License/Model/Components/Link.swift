@@ -50,7 +50,7 @@ public struct Link {
 
     /// Gets the valid URL if possible, applying the given template context as query parameters if the link is templated.
     /// eg. http://url{?id,name} + [id: x, name: y] -> http://url?id=x&name=y
-    public func url(parameters: [String: LosslessStringConvertible] = [:]) -> HTTPURL? {
+    func url(parameters: [String: LosslessStringConvertible] = [:]) -> HTTPURL? {
         var href = href
 
         if templated {
@@ -60,12 +60,16 @@ public struct Link {
         return HTTPURL(string: href)
     }
 
-    public var mediaType: MediaType? {
+    /// Expands the href without any template context.
+    @available(*, unavailable, message: "Use url() instead")
+    var url: URL? { fatalError() }
+
+    var mediaType: MediaType? {
         type.flatMap { MediaType($0) }
     }
 
     /// List of URI template parameter keys, if the `Link` is templated.
-    public var templateParameters: Set<String> {
+    var templateParameters: Set<String> {
         guard templated else {
             return []
         }

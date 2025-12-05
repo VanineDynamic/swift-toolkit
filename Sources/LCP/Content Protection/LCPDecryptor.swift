@@ -105,14 +105,12 @@ final class LCPDecryptor {
         }
 
         func estimatedLength() async -> ReadResult<UInt64?> {
-            await plainTextSize
+            await plainTextSize()
         }
 
-        private var plainTextSize: ReadResult<UInt64?> {
-            get async { await plainTextSizeTask.value }
-        }
+        private lazy var plainTextSize = memoize(_plainTextSize)
 
-        private lazy var plainTextSizeTask = Task<ReadResult<UInt64?>, Never> {
+        private func _plainTextSize() async -> ReadResult<UInt64?> {
             await resource.estimatedLength().asyncFlatMap { length in
                 guard let length = length else {
                     return failure(.requiredEstimatedLength)
@@ -165,7 +163,7 @@ final class LCPDecryptor {
                 let encryptedEndExclusive = (rangeLast + 1).ceilMultiple(of: AESBlockSize) + AESBlockSize
 
                 return await resource.read(range: encryptedStart ..< encryptedEndExclusive)
-                    .combine(plainTextSize)
+                    .combine(plainTextSize())
                     .flatMap { encryptedData, plainTextSize in
                         do {
                             guard let plainTextSize = plainTextSize else {

@@ -67,11 +67,11 @@ final class EPUBReflowableSpreadView: EPUBSpreadView {
     }
 
     override func loadSpread() {
-        guard spread.readingOrderIndices.count == 1 else {
+        guard spread.links.count == 1 else {
             log(.error, "Only one document at a time can be displayed in a reflowable spread")
             return
         }
-        let link = viewModel.readingOrder[spread.leading]
+        let link = spread.leading
         let url = viewModel.url(to: link)
         webView.load(URLRequest(url: url.url))
     }
@@ -86,16 +86,24 @@ final class EPUBReflowableSpreadView: EPUBSpreadView {
     }
 
     private func updateContentInset() {
-        let contentInset = delegate?.spreadViewContentInset(self) ?? .zero
-
         if viewModel.scroll {
             topConstraint.constant = 0
             bottomConstraint.constant = 0
-            scrollView.contentInset = contentInset
+            scrollView.contentInset = UIEdgeInsets(top: notchAreaInsets.top, left: 0, bottom: notchAreaInsets.bottom, right: 0)
 
         } else {
-            topConstraint.constant = contentInset.top
-            bottomConstraint.constant = -contentInset.bottom
+            let contentInset = viewModel.config.contentInset
+            var insets = contentInset[traitCollection.verticalSizeClass]
+                ?? contentInset[.regular]
+                ?? contentInset[.unspecified]
+                ?? (top: 0, bottom: 0)
+
+            // Increases the insets by the notch area (eg. iPhone X) to make sure that the content is not overlapped by the screen notch.
+            insets.top += notchAreaInsets.top
+            insets.bottom += notchAreaInsets.bottom
+
+            topConstraint.constant = insets.top
+            bottomConstraint.constant = -insets.bottom
             scrollView.contentInset = .zero
         }
     }
@@ -103,11 +111,17 @@ final class EPUBReflowableSpreadView: EPUBSpreadView {
     override func convertPointToNavigatorSpace(_ point: CGPoint) -> CGPoint {
         var point = point
         if viewModel.scroll {
-            if scrollView.contentOffset.x < 0 {
-                point.x += abs(scrollView.contentOffset.x)
-            }
-            if scrollView.contentOffset.y < 0 {
-                point.y += abs(scrollView.contentOffset.y)
+            // Starting from iOS 12, the contentInset are not taken into account in the JS touch event.
+            if #available(iOS 12.0, *) {
+                if scrollView.contentOffset.x < 0 {
+                    point.x += abs(scrollView.contentOffset.x)
+                }
+                if scrollView.contentOffset.y < 0 {
+                    point.y += abs(scrollView.contentOffset.y)
+                }
+            } else {
+                point.x += scrollView.contentInset.left
+                point.y += scrollView.contentInset.top
             }
         }
         point.x += webView.frame.minX
@@ -123,37 +137,38 @@ final class EPUBReflowableSpreadView: EPUBSpreadView {
 
     // MARK: - Location and progression
 
-    override func progression(in index: ReadingOrder.Index) -> ClosedRange<Double> {
+    override func progression<T>(in href: T) -> Double where T: URLConvertible {
         guard
-            spread.leading == index,
+            spread.leading.url().isEquivalentTo(href),
             let progression = progression
         else {
-            return 0 ... 0
+            return 0
         }
         return progression
     }
 
-    override func spreadDidLoad() async {
-        if
-            let link = viewModel.readingOrder.getOrNil(spread.leading),
-            let linkJSON = serializeJSONString(link.json)
-        {
-            await evaluateScript("readium.link = \(linkJSON);")
+    override func spreadDidLoad() {
+        Task {
+            if let linkJSON = serializeJSONString(spread.leading.json) {
+                await evaluateScript("readium.link = \(linkJSON);")
+            }
+
+            // TODO: Better solution for delaying scrolling to pending location
+            // This delay is used to wait for the web view pagination to settle and give the CSS and webview time to layout
+            // correctly before attempting to scroll to the target progression, otherwise we might end up at the wrong spot.
+            // 0.2 seconds seems like a good value for it to work on an iPhone 5s.
+            try? await Task.sleep(seconds: 0.2)
+
+            let location = pendingLocation
+            await go(to: pendingLocation)
+
+            // The rendering is sometimes very slow. So in case we don't show the first page of the resource, we add
+            // a generous delay before showing the spread again.
+            let delayed = !location.isStart
+            try? await Task.sleep(seconds: delayed ? 0.3 : 0)
+
+            self.showSpread()
         }
-
-        // TODO: Better solution for delaying scrolling to pending location
-        // This delay is used to wait for the web view pagination to settle and give the CSS and webview time to layout
-        // correctly before attempting to scroll to the target progression, otherwise we might end up at the wrong spot.
-        // 0.2 seconds seems like a good value for it to work on an iPhone 5s.
-        try? await Task.sleep(seconds: 0.2)
-
-        let location = pendingLocation
-        await go(to: pendingLocation)
-
-        // The rendering is sometimes very slow. So in case we don't show the first page of the resource, we add
-        // a generous delay before showing the spread again.
-        let delayed = !location.isStart
-        try? await Task.sleep(seconds: delayed ? 0.3 : 0)
     }
 
     override func go(to direction: EPUBSpreadView.Direction, options: NavigatorGoOptions) async -> Bool {
@@ -195,7 +210,7 @@ final class EPUBReflowableSpreadView: EPUBSpreadView {
 
     @MainActor
     override func go(to location: PageLocation) async {
-        guard isSpreadLoaded else {
+        guard spreadLoaded else {
             // Delays moving to the location until the document is loaded.
             pendingLocation = location
 
@@ -212,7 +227,7 @@ final class EPUBReflowableSpreadView: EPUBSpreadView {
             await scroll(toProgression: 1)
         }
 
-        didCompleteGoTo()
+        await didCompleteGoTo()
     }
 
     @MainActor
@@ -223,7 +238,7 @@ final class EPUBReflowableSpreadView: EPUBSpreadView {
     }
 
     @MainActor
-    private func didCompleteGoTo() {
+    private func didCompleteGoTo() async {
         for cont in goToContinuations {
             cont.resume()
         }
@@ -235,14 +250,9 @@ final class EPUBReflowableSpreadView: EPUBSpreadView {
 
     @discardableResult
     private func go(to locator: Locator) async -> Bool {
-        if !["", "#"].contains(locator.href.string) {
-            guard
-                let index = viewModel.readingOrder.firstIndexWithHREF(locator.href),
-                spread.contains(index: index)
-            else {
-                log(.warning, "The locator's href is not in the spread")
-                return false
-            }
+        guard ["", "#"].contains(locator.href.string) || spread.contains(href: locator.href) else {
+            log(.warning, "The locator's href is not in the spread")
+            return false
         }
 
         if locator.text.highlight != nil {
@@ -265,7 +275,7 @@ final class EPUBReflowableSpreadView: EPUBSpreadView {
         }
 
         // Note: The JS layer does not take into account the scroll view's content inset. So it can't be used to reliably scroll to the top or the bottom of the page in scroll mode.
-        if viewModel.scroll, !viewModel.verticalText, [0, 1].contains(progression) {
+        if viewModel.scroll, [0, 1].contains(progression) {
             var contentOffset = scrollView.contentOffset
             contentOffset.y = (progression == 0)
                 ? -scrollView.contentInset.top
@@ -310,29 +320,22 @@ final class EPUBReflowableSpreadView: EPUBSpreadView {
 
     // MARK: - Progression
 
-    // Current progression range in the page.
-    private var progression: ClosedRange<Double>?
+    // Current progression in the page.
+    private var progression: Double?
     // To check if a progression change was cancelled or not.
-    private var previousProgression: ClosedRange<Double>?
+    private var previousProgression: Double?
 
     // Called by the javascript code to notify that scrolling ended.
     private func progressionDidChange(_ body: Any) {
-        guard
-            isSpreadLoaded,
-            let body = body as? [String: Any],
-            var firstProgression = body["first"] as? Double,
-            var lastProgression = body["last"] as? Double
-        else {
+        guard spreadLoaded, let bodyString = body as? String, var newProgression = Double(bodyString) else {
             return
         }
-        precondition(firstProgression <= lastProgression)
-        firstProgression = min(max(firstProgression, 0.0), 1.0)
-        lastProgression = min(max(lastProgression, 0.0), 1.0)
+        newProgression = min(max(newProgression, 0.0), 1.0)
 
         if previousProgression == nil {
             previousProgression = progression
         }
-        progression = firstProgression ... lastProgression
+        progression = newProgression
 
         setNeedsNotifyPagesDidChange()
     }

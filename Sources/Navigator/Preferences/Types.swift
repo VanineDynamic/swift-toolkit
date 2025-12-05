@@ -23,6 +23,20 @@ public enum Spread: String, Codable, Hashable {
     case never
     /// The publication should always be displayed in a spread.
     case always
+
+    init?(_ spread: ReadiumShared.Presentation.Spread?) {
+        guard let spread = spread else {
+            return nil
+        }
+        switch spread {
+        case .both:
+            self = .always
+        case .none:
+            self = .never
+        case .auto, .landscape:
+            self = .auto
+        }
+    }
 }
 
 /// Direction of the reading progression across resources.
@@ -39,7 +53,7 @@ public enum ReadingProgression: String, Codable, Hashable {
     }
 
     /// Returns the starting page for the reading progression.
-    var startingPage: Properties.Page {
+    var startingPage: Presentation.Page {
         switch self {
         case .ltr:
             return .right

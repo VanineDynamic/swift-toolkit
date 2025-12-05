@@ -7,11 +7,6 @@
 import Foundation
 
 public extension Array {
-    init(builder: (inout Self) -> Void) {
-        self.init()
-        builder(&self)
-    }
-
     /// Creates a new `Array` from the given `elements`, if they are not nil.
     init(ofNotNil elements: Element?...) {
         self = elements.compactMap { $0 }
@@ -39,12 +34,6 @@ public extension Array {
         var array = self
         array.append(newElement)
         return array
-    }
-}
-
-public extension Array where Element: Equatable {
-    @inlinable func containsAny(_ elements: Element...) -> Bool {
-        contains { elements.contains($0) }
     }
 }
 
